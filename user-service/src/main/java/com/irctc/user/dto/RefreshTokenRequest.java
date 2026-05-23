@@ -1,5 +1,6 @@
 package com.irctc.user.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,9 +10,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserLoginResponse {
-    private String accessToken;
+public class RefreshTokenRequest {
+
+    @NotBlank(message = "Refresh token cannot be blank")
     private String refreshToken;
-    private String tokenType;
-    private UserResponse user;
 }

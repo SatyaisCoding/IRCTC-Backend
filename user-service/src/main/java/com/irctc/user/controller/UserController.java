@@ -1,14 +1,14 @@
 package com.irctc.user.controller;
 
-import com.irctc.user.dto.UserLoginRequest;
-import com.irctc.user.dto.UserLoginResponse;
-import com.irctc.user.dto.UserRegisterRequest;
+import com.irctc.user.dto.ApiResponse;
+import com.irctc.user.dto.ChangePasswordRequest;
 import com.irctc.user.dto.UserResponse;
+import com.irctc.user.security.UserPrincipal;
 import com.irctc.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -18,27 +18,26 @@ public class UserController {
 
     private final UserService userService;
 
-    @PostMapping("/register")
-    public ResponseEntity<UserResponse> registerUser(@Valid @RequestBody UserRegisterRequest request) {
-        UserResponse response = userService.registerUser(request);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    @GetMapping("/profile")
+    public ResponseEntity<ApiResponse<UserResponse>> getUserProfile(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        UserResponse response = userService.getUserProfile(userPrincipal.getId());
+        return ResponseEntity.ok(ApiResponse.success("User profile fetched successfully", response));
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<UserLoginResponse> loginUser(@Valid @RequestBody UserLoginRequest request) {
-        UserLoginResponse response = userService.loginUser(request);
-        return ResponseEntity.ok(response);
+    @PutMapping("/profile/update")
+    public ResponseEntity<ApiResponse<UserResponse>> updateUserProfile(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestParam(required = false) String fullName,
+            @RequestParam(required = false) String email) {
+        UserResponse response = userService.updateUserProfile(userPrincipal.getId(), fullName, email);
+        return ResponseEntity.ok(ApiResponse.success("User profile updated successfully", response));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
-        UserResponse response = userService.getUserById(id);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/username/{username}")
-    public ResponseEntity<UserResponse> getUserByUsername(@PathVariable String username) {
-        UserResponse response = userService.getUserByUsername(username);
-        return ResponseEntity.ok(response);
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<String>> changePassword(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(userPrincipal.getId(), request);
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully"));
     }
 }
