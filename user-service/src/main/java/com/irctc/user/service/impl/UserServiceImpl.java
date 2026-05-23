@@ -1,99 +1,66 @@
 package com.irctc.user.service.impl;
 
-import com.irctc.user.dto.UserLoginRequest;
-import com.irctc.user.dto.UserLoginResponse;
-import com.irctc.user.dto.UserRegisterRequest;
+import com.irctc.user.dto.ChangePasswordRequest;
 import com.irctc.user.dto.UserResponse;
 import com.irctc.user.entity.User;
 import com.irctc.user.exception.UserException;
+import com.irctc.user.mapper.UserMapper;
 import com.irctc.user.repository.UserRepository;
 import com.irctc.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse getUserProfile(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserException("User not found", "USER_NOT_FOUND", HttpStatus.NOT_FOUND));
+        return userMapper.toResponse(user);
+    }
 
     @Override
     @Transactional
-    public UserResponse registerUser(UserRegisterRequest request) {
-        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            throw new UserException("Username is already taken", "USERNAME_ALREADY_EXISTS");
-        }
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new UserException("Email is already registered", "EMAIL_ALREADY_EXISTS");
-        }
-
-        // NOTE: In production, password should be hashed (e.g., using BCryptPasswordEncoder)
-        User user = User.builder()
-                .username(request.getUsername())
-                .password(request.getPassword()) 
-                .email(request.getEmail())
-                .fullName(request.getFullName())
-                .role("USER")
-                .build();
-
-        User savedUser = userRepository.save(user);
-        return mapToResponse(savedUser);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public UserLoginResponse loginUser(UserLoginRequest request) {
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new UserException("Invalid username or password", "INVALID_CREDENTIALS"));
-
-        // NOTE: Standard plain-text password match for boilerplate/mock
-        if (!user.getPassword().equals(request.getPassword())) {
-            throw new UserException("Invalid username or password", "INVALID_CREDENTIALS");
-        }
-
-        // Mock JWT generation for readiness
-        String mockToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." + 
-                           Base64UrlEncode("{\"sub\":\"" + user.getUsername() + "\",\"role\":\"" + user.getRole() + "\"}") + 
-                           ".MockSignatureValue";
-
-        return UserLoginResponse.builder()
-                .token(mockToken)
-                .username(user.getUsername())
-                .role(user.getRole())
-                .build();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public UserResponse getUserByUsername(String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UserException("User not found with Username: " + username, "USER_NOT_FOUND"));
-        return mapToResponse(user);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public UserResponse getUserById(Long id) {
+    public UserResponse updateUserProfile(Long id, String fullName, String email) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new UserException("User not found with ID: " + id, "USER_NOT_FOUND"));
-        return mapToResponse(user);
+                .orElseThrow(() -> new UserException("User not found", "USER_NOT_FOUND", HttpStatus.NOT_FOUND));
+
+        if (email != null && !email.equalsIgnoreCase(user.getEmail())) {
+            if (userRepository.existsByEmail(email)) {
+                throw new UserException("Email is already taken by another account", "EMAIL_ALREADY_EXISTS");
+            }
+            user.setEmail(email);
+        }
+
+        if (fullName != null && !fullName.isBlank()) {
+            user.setFullName(fullName);
+        }
+
+        User updatedUser = userRepository.save(user);
+        return userMapper.toResponse(updatedUser);
     }
 
-    private UserResponse mapToResponse(User user) {
-        return UserResponse.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .role(user.getRole())
-                .createdAt(user.getCreatedAt())
-                .build();
-    }
+    @Override
+    @Transactional
+    public void changePassword(Long id, ChangePasswordRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserException("User not found", "USER_NOT_FOUND", HttpStatus.NOT_FOUND));
 
-    private String Base64UrlEncode(String input) {
-        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(input.getBytes());
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new UserException("Old password does not match", "INVALID_PASSWORD", HttpStatus.UNAUTHORIZED);
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 }

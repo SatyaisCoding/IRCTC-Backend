@@ -1,13 +1,10 @@
 package com.irctc.user.service;
 
-import com.irctc.user.dto.UserLoginRequest;
-import com.irctc.user.dto.UserLoginResponse;
-import com.irctc.user.dto.UserRegisterRequest;
+import com.irctc.user.dto.ChangePasswordRequest;
 import com.irctc.user.dto.UserResponse;
 
 public interface UserService {
-    UserResponse registerUser(UserRegisterRequest request);
-    UserLoginResponse loginUser(UserLoginRequest request);
-    UserResponse getUserByUsername(String username);
-    UserResponse getUserById(Long id);
+    UserResponse getUserProfile(Long id);
+    UserResponse updateUserProfile(Long id, String fullName, String email);
+    void changePassword(Long id, ChangePasswordRequest request);
 }
