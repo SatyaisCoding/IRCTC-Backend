@@ -1,0 +1,41 @@
+server:
+  port: 8085
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: notification-service
+
+  # Email Configuration (Spring Mail)
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:placeholder@gmail.com}
+    password: ${SPRING_MAIL_PASSWORD:placeholder-pass}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# Actuator Monitoring Configurations
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Eureka Client Discovery Configuration (Prepared)
+# eureka:
+#   client:
+#     service-url:
+#       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+#     register-with-eureka: true
+#     fetch-registry: true
+#   instance:
+#     prefer-ip-address: true
