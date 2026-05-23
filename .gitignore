@@ -1,0 +1,53 @@
+# Maven Target Directory
+**/target/
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Eclipse
+.metadata
+/bin/
+/tmp/
+*.tmp
+*.bak
+/*.userlibraries
+.classpath
+.project
+.settings/
+.springBeans
+.factorypath
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+
+# VS Code
+.vscode/
+
+# Log Files
+*.log
+logs/
+**/logs/
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Crash dumps
+spec/reports
+/test-output
+/target
+
+# Docker Compose Local Settings
+.env

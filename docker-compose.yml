@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: irctc-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    restart: unless-stopped
+    networks:
+      - irctc-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: irctc-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - irctc-network
+
+  # Microservices placeholders. Uncomment and run 'docker compose up' 
+  # after building service images using their respective Dockerfiles.
+  #
+  # booking-service:
+  #   build:
+  #     context: ./booking-service
+  #     dockerfile: Dockerfile
+  #   container_name: booking-service
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_booking
+  #     - SPRING_DATASOURCE_USERNAME=postgres
+  #     - SPRING_DATASOURCE_PASSWORD=password
+  #     - SPRING_REDIS_HOST=redis
+  #     - SPRING_REDIS_PORT=6379
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #   networks:
+  #     - irctc-network
+  #
+  # payment-service:
+  #   build:
+  #     context: ./payment-service
+  #     dockerfile: Dockerfile
+  #   container_name: payment-service
+  #   ports:
+  #     - "8082:8082"
+  #   environment:
+  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_payment
+  #     - SPRING_DATASOURCE_USERNAME=postgres
+  #     - SPRING_DATASOURCE_PASSWORD=password
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - irctc-network
+  #
+  # search-service:
+  #   build:
+  #     context: ./search-service
+  #     dockerfile: Dockerfile
+  #   container_name: search-service
+  #   ports:
+  #     - "8083:8083"
+  #   environment:
+  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_search
+  #     - SPRING_DATASOURCE_USERNAME=postgres
+  #     - SPRING_DATASOURCE_PASSWORD=password
+  #     - SPRING_REDIS_HOST=redis
+  #     - SPRING_REDIS_PORT=6379
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #   networks:
+  #     - irctc-network
+  #
+  # user-service:
+  #   build:
+  #     context: ./user-service
+  #     dockerfile: Dockerfile
+  #   container_name: user-service
+  #   ports:
+  #     - "8084:8084"
+  #   environment:
+  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_user
+  #     - SPRING_DATASOURCE_USERNAME=postgres
+  #     - SPRING_DATASOURCE_PASSWORD=password
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - irctc-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  irctc-network:
+    driver: bridge
