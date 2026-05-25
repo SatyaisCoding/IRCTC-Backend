@@ -78,8 +78,8 @@ management:
 # Custom Security & Remote Service Properties
 app:
   jwt:
-    # 512-bit HS512 secret string, generated for production grade security
-    secret: ${JWT_SECRET:9263FD51303D4A30A4058DB04EA668A7836D4862590E6B97A0A9C2C3AA817A547846A310243E4B898C6D12E6B65B5EAEFE12}
+    # 512-bit HS512 secret string resolved dynamically via JWT_SECRET environment property
+    secret: ${JWT_SECRET:default-local-jwt-secret-placeholder-not-high-entropy}
     accessTokenExpirationMs: ${JWT_ACCESS_EXPIRATION_MS:900000}       # 15 Minutes
     refreshTokenExpirationMs: ${JWT_REFRESH_EXPIRATION_MS:604800000}  # 7 Days
   otp:

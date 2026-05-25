@@ -10,8 +10,8 @@ import com.irctc.user.repository.UserRepository;
 import com.irctc.user.security.JwtTokenProvider;
 import com.irctc.user.security.UserPrincipal;
 import com.irctc.user.kafka.KafkaProducerService;
-import com.irctc.user.kafka.KafkaProducerService.OtpNotificationEvent;
-import com.irctc.user.kafka.KafkaProducerService.WelcomeNotificationEvent;
+import com.irctc.user.kafka.event.OtpNotificationEvent;
+import com.irctc.user.kafka.event.WelcomeNotificationEvent;
 import com.irctc.user.service.AuthService;
 import com.irctc.user.service.OtpService;
 import lombok.RequiredArgsConstructor;
@@ -63,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
         // Generate and send Verification OTP asynchronously via Kafka
         String otp = otpService.generateOtp(savedUser.getEmail());
         kafkaProducerService.sendOtpNotification(
-                new OtpNotificationEvent(savedUser.getEmail(), otp, "5")
+                new OtpNotificationEvent(savedUser.getEmail(), otp, "EMAIL_VERIFICATION")
         );
 
         return userMapper.toResponse(savedUser);
@@ -88,10 +88,8 @@ public class AuthServiceImpl implements AuthService {
         User savedUser = userRepository.save(user);
 
         // Send Welcome email asynchronously via Kafka upon successful verification
-        String fullName = savedUser.getFullName();
-        String firstName = (fullName != null && fullName.contains(" ")) ? fullName.split(" ")[0] : fullName;
         kafkaProducerService.sendWelcomeNotification(
-                new WelcomeNotificationEvent(savedUser.getEmail(), firstName)
+                new WelcomeNotificationEvent(savedUser.getEmail(), savedUser.getFullName())
         );
     }
 
@@ -105,7 +103,7 @@ public class AuthServiceImpl implements AuthService {
             // Re-send verification OTP asynchronously via Kafka
             String otp = otpService.generateOtp(user.getEmail());
             kafkaProducerService.sendOtpNotification(
-                    new OtpNotificationEvent(user.getEmail(), otp, "5")
+                    new OtpNotificationEvent(user.getEmail(), otp, "EMAIL_VERIFICATION")
             );
             throw new UserException("Email address is not verified. A fresh OTP has been sent to your email.", "EMAIL_NOT_VERIFIED", HttpStatus.FORBIDDEN);
         }
@@ -211,7 +209,7 @@ public class AuthServiceImpl implements AuthService {
         // Generate and send Password Reset OTP asynchronously via Kafka
         String otp = otpService.generateOtp(user.getEmail());
         kafkaProducerService.sendOtpNotification(
-                new OtpNotificationEvent(user.getEmail(), otp, "5")
+                new OtpNotificationEvent(user.getEmail(), otp, "PASSWORD_RESET")
         );
     }
 
@@ -257,9 +255,8 @@ public class AuthServiceImpl implements AuthService {
 
         // If this is a brand new Google user, send a welcome email asynchronously via Kafka
         if (isNewUser[0]) {
-            String firstName = (fullName != null && fullName.contains(" ")) ? fullName.split(" ")[0] : fullName;
             kafkaProducerService.sendWelcomeNotification(
-                    new WelcomeNotificationEvent(email, firstName)
+                    new WelcomeNotificationEvent(email, fullName)
             );
             log.info("New Google user [{}] registered. Welcome event published to Kafka.", email);
         }
