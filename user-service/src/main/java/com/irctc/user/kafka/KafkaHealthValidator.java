@@ -19,7 +19,7 @@ public class KafkaHealthValidator {
 
     private final AdminClient kafkaAdminClient;
 
-    private static final long CACHE_TTL_MS     = 30_000L;
+    private static final long CACHE_TTL_MS    = 30_000L;
     private static final long PROBE_TIMEOUT_SEC = 5L;
 
     private final AtomicLong    lastHealthyTimestamp = new AtomicLong(0L);

@@ -1,0 +1,55 @@
+server:
+  port: 8085
+  servlet:
+    context-path: /
+  shutdown: graceful
+
+spring:
+  application:
+    name: notification-service
+  lifecycle:
+    timeout-per-shutdown-phase: 15s
+
+  # Email Configuration (Spring Mail)
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:placeholder@gmail.com}
+    password: ${SPRING_MAIL_PASSWORD:placeholder-pass}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  # Apache Kafka Consumer Configuration
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    listener:
+      shutdown-timeout: 10000ms
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# Actuator Monitoring Configurations
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Eureka Client Discovery Configuration (Prepared)
+# eureka:
+#   client:
+#     service-url:
+#       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+#     register-with-eureka: true
+#     fetch-registry: true
+#   instance:
+#     prefer-ip-address: true

@@ -20,6 +20,9 @@ import java.util.concurrent.CompletableFuture;
  * │  This performs a lightweight broker probe (cached for 30 seconds)      │
  * │  and throws KafkaBrokerUnavailableException if the broker is down.     │
  * │                                                                         │
+ * │  This prevents blindly firing kafkaTemplate.send() into a void and    │
+ * │  only discovering the failure asynchronously in the CompletableFuture. │
+ * │                                                                         │
  * └────────────────────────────────────────────────────────────────────────┘
  */
 @Service
@@ -38,8 +41,10 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
 
     @Override
     public void sendOtpNotification(OtpNotificationEvent event) {
+        // ── Step 1: Verify broker is reachable before attempting send ──────
         kafkaHealthValidator.ensureConnected();
 
+        // ── Step 2: Publish event asynchronously ───────────────────────────
         log.info("[KafkaProducer] Publishing OTP event → topic: [{}] | email: [{}] | type: [{}]",
                 otpNotificationTopic, event.getToEmail(), event.getTemplateType());
 
@@ -48,10 +53,11 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
 
         future.whenComplete((result, ex) -> {
             if (ex != null) {
-                log.error("[KafkaProducer] OTP event delivery FAILED for email [{}]: {}",
+                log.error("[KafkaProducer]  OTP event delivery FAILED for email [{}]: {}",
                         event.getToEmail(), ex.getMessage());
             } else {
-                log.info("[KafkaProducer] OTP event delivered | email: [{}] | partition: {} | offset: {}",
+                log.info("[KafkaProducer]  OTP event delivered | email: [{}] | " +
+                         "partition: {} | offset: {}",
                         event.getToEmail(),
                         result.getRecordMetadata().partition(),
                         result.getRecordMetadata().offset());
@@ -61,8 +67,10 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
 
     @Override
     public void sendWelcomeNotification(WelcomeNotificationEvent event) {
+        // ── Step 1: Verify broker is reachable before attempting send ──────
         kafkaHealthValidator.ensureConnected();
 
+        // ── Step 2: Publish event asynchronously ───────────────────────────
         log.info("[KafkaProducer] Publishing Welcome event → topic: [{}] | email: [{}]",
                 welcomeNotificationTopic, event.getToEmail());
 
@@ -71,10 +79,11 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
 
         future.whenComplete((result, ex) -> {
             if (ex != null) {
-                log.error("[KafkaProducer] Welcome event delivery FAILED for email [{}]: {}",
+                log.error("[KafkaProducer]  Welcome event delivery FAILED for email [{}]: {}",
                         event.getToEmail(), ex.getMessage());
             } else {
-                log.info("[KafkaProducer] Welcome event delivered | email: [{}] | partition: {} | offset: {}",
+                log.info("[KafkaProducer]  Welcome event delivered | email: [{}] | " +
+                         "partition: {} | offset: {}",
                         event.getToEmail(),
                         result.getRecordMetadata().partition(),
                         result.getRecordMetadata().offset());

@@ -37,6 +37,7 @@ public class KafkaProducerConfig {
         props.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
 
         DefaultKafkaProducerFactory<String, Object> factory = new DefaultKafkaProducerFactory<>(props);
+        // Singleton producer — one shared KafkaProducer, one TCP connection to the broker
         factory.setProducerPerThread(false);
 
         log.info("[KafkaProducerConfig] ProducerFactory initialized. Bootstrap: {}", bootstrapServers);
