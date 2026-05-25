@@ -1,6 +1,5 @@
-version: '3.8'
-
 services:
+  # PostgreSQL database
   postgres:
     image: postgres:16-alpine
     container_name: irctc-postgres
@@ -16,6 +15,7 @@ services:
     networks:
       - irctc-network
 
+  # Redis cache
   redis:
     image: redis:7-alpine
     container_name: irctc-redis
@@ -27,97 +27,53 @@ services:
     networks:
       - irctc-network
 
-  # 1. User Microservice (Port 8084)
-  user-service:
-    build:
-      context: ./user-service
-      dockerfile: Dockerfile
-    container_name: user-service
+  # Zookeeper (for Kafka synchronization)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: irctc-zookeeper
     ports:
-      - "8084:8084"
+      - "2181:2181"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_user
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=password
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-      - JWT_SECRET=9263FD51303D4A30A4058DB04EA668A7836D4862590E6B97A0A9C2C3AA817A547846A310243E4B898C6D12E6B65B5EAEFE12
-      - NOTIFICATION_SERVICE_URL=http://notification-service:8085
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_HEAP_OPTS: "-Xmx128m -Xms128m"
     networks:
       - irctc-network
 
-  # 2. Notification Microservice (Port 8085)
-  notification-service:
-    build:
-      context: ./notification-service
-      dockerfile: Dockerfile
-    container_name: notification-service
+  # Apache Kafka Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: irctc-kafka
+    depends_on:
+      - zookeeper
     ports:
-      - "8085:8085"
+      - "9092:9092"
     environment:
-      - SPRING_MAIL_HOST=smtp.gmail.com
-      - SPRING_MAIL_PORT=587
-      - SPRING_MAIL_USERNAME=placeholder-email@gmail.com
-      - SPRING_MAIL_PASSWORD=your-app-specific-password
-    restart: unless-stopped
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_HEAP_OPTS: "-Xmx256m -Xms256m"
     networks:
       - irctc-network
 
-  # 3. Booking Microservice (Port 8081)
-  booking-service:
-    build:
-      context: ./booking-service
-      dockerfile: Dockerfile
-    container_name: booking-service
-    ports:
-      - "8081:8081"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_booking
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=password
+  # Kafka UI Console (accessible on port 8080)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    restart: always
     depends_on:
-      - postgres
-    restart: unless-stopped
-    networks:
-      - irctc-network
-
-  # 4. Payment Microservice (Port 8082)
-  payment-service:
-    build:
-      context: ./payment-service
-      dockerfile: Dockerfile
-    container_name: payment-service
+      - kafka
     ports:
-      - "8082:8082"
+      - "8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_payment
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=password
-    depends_on:
-      - postgres
-    restart: unless-stopped
-    networks:
-      - irctc-network
-
-  # 5. Search Microservice (Port 8083)
-  search-service:
-    build:
-      context: ./search-service
-      dockerfile: Dockerfile
-    container_name: search-service
-    ports:
-      - "8083:8083"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_search
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=password
-    depends_on:
-      - postgres
-    restart: unless-stopped
+      KAFKA_CLUSTERS_0_NAME: irctc-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
     networks:
       - irctc-network
 

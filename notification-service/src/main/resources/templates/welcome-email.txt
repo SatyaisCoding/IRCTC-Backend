@@ -1,10 +1,10 @@
 Welcome to IRCTC!
 
-Dear {fullName},
+Dear {firstName},
 
 We're thrilled to have you on board!
 
-Your Google account has been successfully linked, and you are now a registered member of IRCTC — your one-stop destination for train ticket booking across India.
+Your account has been successfully created, and you are now a registered member of IRCTC — your one-stop destination for train ticket booking across India.
 
 What you can do now:
   ✓ Search trains between any two stations
