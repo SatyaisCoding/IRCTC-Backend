@@ -3,7 +3,6 @@ package com.irctc.notification.service.impl;
 import com.irctc.notification.dto.NotificationRequest;
 import com.irctc.notification.service.MailService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.mail.SimpleMailMessage;
@@ -18,8 +17,9 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class MailServiceImpl implements MailService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MailServiceImpl.class);
 
     private final JavaMailSender mailSender;
     private final ResourceLoader resourceLoader;
@@ -34,11 +34,15 @@ public class MailServiceImpl implements MailService {
         switch (request.getTemplateType().toUpperCase()) {
             case "EMAIL_VERIFICATION":
                 templateFile = "classpath:templates/email-verification.txt";
-                subject = "IRCTC Clone - Email Verification OTP";
+                subject = "IRCTC - Email Verification OTP";
                 break;
             case "PASSWORD_RESET":
                 templateFile = "classpath:templates/password-reset.txt";
-                subject = "IRCTC Clone - Password Reset OTP";
+                subject = "IRCTC - Password Reset OTP";
+                break;
+            case "WELCOME":
+                templateFile = "classpath:templates/welcome-email.txt";
+                subject = "Welcome to IRCTC!";
                 break;
             default:
                 log.error("Unknown template type: {}", request.getTemplateType());
@@ -59,31 +63,22 @@ public class MailServiceImpl implements MailService {
                 }
             }
 
-            // 3. Send email (with fallback output)
+            // 3. Send email (resilience is managed by Kafka DLQ)
             triggerSend(request.getToEmail(), subject, resolvedBody);
 
         } catch (Exception ex) {
-            log.error("Failed to load or resolve template: {}", ex.getMessage());
+            log.error("Failed to process or send email: {}", ex.getMessage());
+            throw new IllegalStateException("Email transmission failed", ex);
         }
     }
 
     private void triggerSend(String to, String subject, String body) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(body);
-            mailSender.send(message);
-            log.info("Email sent successfully to {}", to);
-        } catch (Exception ex) {
-            log.warn("==================================================================");
-            log.warn("SMTP EMAIL SENDING FAILED FOR: {}", to);
-            log.warn("REASON: {}", ex.getMessage());
-            log.warn("FALLBACK MODE: Printing dynamically resolved message below.");
-            log.warn(">>> RECIPIENT: {}", to);
-            log.warn(">>> SUBJECT: {}", subject);
-            log.warn(">>> BODY: \n{}", body);
-            log.warn("==================================================================");
-        }
+        log.info("Sending simple email message to {}", to);
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(body);
+        mailSender.send(message);
+        log.info("Email sent successfully to {}", to);
     }
 }

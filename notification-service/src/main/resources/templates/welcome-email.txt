@@ -1,0 +1,6 @@
+Dear {firstName},
+
+Welcome to IRCTC! Your account has been successfully created.
+
+Regards,
+IRCTC Security Team
