@@ -1,5 +1,7 @@
 server:
   port: 8084
+  servlet:
+    context-path: /
 
 spring:
   application:
@@ -15,21 +17,38 @@ spring:
   # Spring Data JPA Configuration
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate # Database structure is managed exclusively by Flyway
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+        format_sql: false
 
-  # ==========================================
-  # ECOSYSTEM READY CONFIGURATIONS (COMMENTED)
-  # ==========================================
+  # Flyway Database Migration Configuration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
 
   # Redis Configuration
-  # redis:
-  #   host: ${SPRING_REDIS_HOST:localhost}
-  #   port: ${SPRING_REDIS_PORT:6379}
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:}
+
+  # OAuth2 Client Configuration (Google Authentication Placeholder)
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:google-mock-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:google-mock-client-secret}
+            scope:
+              - email
+              - profile
 
 # Actuator Monitoring Configurations
 management:
@@ -41,7 +60,20 @@ management:
     health:
       show-details: always
 
-# Eureka Client Discovery Configuration
+# Custom Security & Remote Service Properties
+app:
+  jwt:
+    # 512-bit HS512 secret string, generated for production grade security
+    secret: ${JWT_SECRET:9263FD51303D4A30A4058DB04EA668A7836D4862590E6B97A0A9C2C3AA817A547846A310243E4B898C6D12E6B65B5EAEFE12}
+    accessTokenExpirationMs: ${JWT_ACCESS_EXPIRATION_MS:900000}       # 15 Minutes
+    refreshTokenExpirationMs: ${JWT_REFRESH_EXPIRATION_MS:604800000}  # 7 Days
+  otp:
+    expirationMinutes: 5
+  services:
+    # URL pointing to the decoupled notification microservice
+    notification-service-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+
+# Eureka Client Discovery Configuration (Commented/Prepared)
 # eureka:
 #   client:
 #     service-url:
