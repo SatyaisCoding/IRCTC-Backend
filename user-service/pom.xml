@@ -64,6 +64,12 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
 
+        <!-- Apache Kafka Producer for async notification events -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- Spring Boot Actuator for health checks & telemetry -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

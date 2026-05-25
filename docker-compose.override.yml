@@ -1,0 +1,2 @@
+# Cleared - All infrastructure configurations have been consolidated into the main docker-compose.yml.
+# Microservices have been removed from Docker Compose to be run manually on the host machine.

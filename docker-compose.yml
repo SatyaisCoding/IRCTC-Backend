@@ -1,6 +1,5 @@
-version: '3.8'
-
 services:
+  # PostgreSQL database
   postgres:
     image: postgres:16-alpine
     container_name: irctc-postgres
@@ -16,6 +15,7 @@ services:
     networks:
       - irctc-network
 
+  # Redis cache
   redis:
     image: redis:7-alpine
     container_name: irctc-redis
@@ -27,78 +27,55 @@ services:
     networks:
       - irctc-network
 
-  # Microservices placeholders. Uncomment and run 'docker compose up' 
-  # after building service images using their respective Dockerfiles.
-  #
-  # booking-service:
-  #   build:
-  #     context: ./booking-service
-  #     dockerfile: Dockerfile
-  #   container_name: booking-service
-  #   ports:
-  #     - "8081:8081"
-  #   environment:
-  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_booking
-  #     - SPRING_DATASOURCE_USERNAME=postgres
-  #     - SPRING_DATASOURCE_PASSWORD=password
-  #     - SPRING_REDIS_HOST=redis
-  #     - SPRING_REDIS_PORT=6379
-  #   depends_on:
-  #     - postgres
-  #     - redis
-  #   networks:
-  #     - irctc-network
-  #
-  # payment-service:
-  #   build:
-  #     context: ./payment-service
-  #     dockerfile: Dockerfile
-  #   container_name: payment-service
-  #   ports:
-  #     - "8082:8082"
-  #   environment:
-  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_payment
-  #     - SPRING_DATASOURCE_USERNAME=postgres
-  #     - SPRING_DATASOURCE_PASSWORD=password
-  #   depends_on:
-  #     - postgres
-  #   networks:
-  #     - irctc-network
-  #
-  # search-service:
-  #   build:
-  #     context: ./search-service
-  #     dockerfile: Dockerfile
-  #   container_name: search-service
-  #   ports:
-  #     - "8083:8083"
-  #   environment:
-  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_search
-  #     - SPRING_DATASOURCE_USERNAME=postgres
-  #     - SPRING_DATASOURCE_PASSWORD=password
-  #     - SPRING_REDIS_HOST=redis
-  #     - SPRING_REDIS_PORT=6379
-  #   depends_on:
-  #     - postgres
-  #     - redis
-  #   networks:
-  #     - irctc-network
-  #
-  # user-service:
-  #   build:
-  #     context: ./user-service
-  #     dockerfile: Dockerfile
-  #   container_name: user-service
-  #   ports:
-  #     - "8084:8084"
-  #   environment:
-  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/irctc_user
-  #     - SPRING_DATASOURCE_USERNAME=postgres
-  #     - SPRING_DATASOURCE_PASSWORD=password
-  #   depends_on:
-  #     - postgres
-  #   networks:
-  #     - irctc-network
+  # Zookeeper (for Kafka synchronization)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: irctc-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_HEAP_OPTS: "-Xmx128m -Xms128m"
+    networks:
+      - irctc-network
+
+  # Apache Kafka Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: irctc-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_HEAP_OPTS: "-Xmx256m -Xms256m"
+    networks:
+      - irctc-network
+
+  # Kafka UI Console (accessible on port 8080)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    restart: always
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: irctc-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    networks:
+      - irctc-network
 
 volumes:
   postgres_data:
