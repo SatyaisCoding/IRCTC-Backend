@@ -2,6 +2,8 @@ package com.irctc.notification.kafka;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.irctc.notification.dto.NotificationRequest;
+import com.irctc.notification.kafka.event.OtpNotificationEvent;
+import com.irctc.notification.kafka.event.WelcomeNotificationEvent;
 import com.irctc.notification.service.MailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -18,10 +20,6 @@ public class NotificationConsumer {
     private final MailService mailService;
     private final ObjectMapper objectMapper;
 
-    // Java 21 record events to eliminate boilerplate
-    public record OtpNotificationEvent(String email, String otp, String ttlMinutes) {}
-    public record WelcomeNotificationEvent(String email, String firstName) {}
-
     // ==========================================
     // Core Topic Consumers
     // ==========================================
@@ -33,9 +31,9 @@ public class NotificationConsumer {
             OtpNotificationEvent event = objectMapper.readValue(message, OtpNotificationEvent.class);
             
             NotificationRequest request = NotificationRequest.builder()
-                    .toEmail(event.email())
-                    .templateType("EMAIL_VERIFICATION")
-                    .templateModel(Map.of("otp", event.otp()))
+                    .toEmail(event.getToEmail())
+                    .templateType(event.getTemplateType() != null ? event.getTemplateType() : "EMAIL_VERIFICATION")
+                    .templateModel(Map.of("otp", event.getOtp()))
                     .build();
                     
             mailService.sendEmail(request);
@@ -52,9 +50,9 @@ public class NotificationConsumer {
             WelcomeNotificationEvent event = objectMapper.readValue(message, WelcomeNotificationEvent.class);
             
             NotificationRequest request = NotificationRequest.builder()
-                    .toEmail(event.email())
+                    .toEmail(event.getToEmail())
                     .templateType("WELCOME")
-                    .templateModel(Map.of("firstName", event.firstName()))
+                    .templateModel(Map.of("firstName", event.getFullName()))
                     .build();
                     
             mailService.sendEmail(request);
@@ -76,9 +74,9 @@ public class NotificationConsumer {
         log.warn("FALLBACK MODE: Printing dynamically resolved message below.");
         try {
             OtpNotificationEvent event = objectMapper.readValue(message, OtpNotificationEvent.class);
-            log.warn(">>> RECIPIENT: {}", event.email());
+            log.warn(">>> RECIPIENT: {}", event.getToEmail());
             log.warn(">>> SUBJECT: IRCTC - Email Verification OTP");
-            log.warn(">>> BODY OTP: {}", event.otp());
+            log.warn(">>> BODY OTP: {}", event.getOtp());
         } catch (Exception ex) {
             log.error(">>> RAW DLQ MSG (FAILED TO PARSE): {}", message);
         }
@@ -93,9 +91,9 @@ public class NotificationConsumer {
         log.warn("FALLBACK MODE: Printing dynamically resolved message below.");
         try {
             WelcomeNotificationEvent event = objectMapper.readValue(message, WelcomeNotificationEvent.class);
-            log.warn(">>> RECIPIENT: {}", event.email());
+            log.warn(">>> RECIPIENT: {}", event.getToEmail());
             log.warn(">>> SUBJECT: Welcome to IRCTC!");
-            log.warn(">>> BODY: Welcome {} to IRCTC microservices portal!", event.firstName());
+            log.warn(">>> BODY: Welcome {} to IRCTC microservices portal!", event.getFullName());
         } catch (Exception ex) {
             log.error(">>> RAW DLQ MSG (FAILED TO PARSE): {}", message);
         }
