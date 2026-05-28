@@ -1,0 +1,143 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: api-gateway
+  lifecycle:
+    timeout-per-shutdown-phase: 15s
+
+  # ── Redis (used by Rate Limiter) ─────────────────────────────────────────
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:}
+
+  # ── Cloud Gateway Routes ─────────────────────────────────────────────────
+  cloud:
+    gateway:
+      # Global CORS — allow all origins in dev
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "GET,POST,PUT,DELETE,OPTIONS"
+            allowedHeaders: "*"
+
+      routes:
+
+        # ════════════════════════════════════════════════════════════════════
+        # USER SERVICE  (internal port: 8084)
+        # ════════════════════════════════════════════════════════════════════
+
+        # ── Public Auth routes (register, login, OTP, OAuth) ─────────────
+        # Rate limit: 5 req/sec per IP (prevent brute force)
+        - id: user-service-auth
+          uri: ${USER_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@ipKeyResolver}"
+
+        # ── Protected User profile routes ────────────────────────────────
+        # Rate limit: 30 req/sec per user
+        - id: user-service-profile
+          uri: ${USER_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/user/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+                key-resolver: "#{@userKeyResolver}"
+
+        # ════════════════════════════════════════════════════════════════════
+        # NOTIFICATION SERVICE  (internal port: 8085)
+        # ════════════════════════════════════════════════════════════════════
+
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/v1/notification/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                key-resolver: "#{@userKeyResolver}"
+
+        # ════════════════════════════════════════════════════════════════════
+        # SEARCH SERVICE  (internal port: 8086)
+        # ════════════════════════════════════════════════════════════════════
+
+        - id: search-service
+          uri: ${SEARCH_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/api/v1/search/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@userKeyResolver}"
+
+        # ════════════════════════════════════════════════════════════════════
+        # BOOKING SERVICE  (internal port: 8087)
+        # ════════════════════════════════════════════════════════════════════
+
+        - id: booking-service
+          uri: ${BOOKING_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/api/v1/booking/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@userKeyResolver}"
+
+        # ════════════════════════════════════════════════════════════════════
+        # PAYMENT SERVICE  (internal port: 8088)
+        # ════════════════════════════════════════════════════════════════════
+
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8088}
+          predicates:
+            - Path=/api/v1/payment/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                key-resolver: "#{@userKeyResolver}"
+
+# ── Actuator ──────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# ── Custom Properties ─────────────────────────────────────────────────────
+app:
+  jwt:
+    secret: ${JWT_SECRET:default-local-jwt-secret-placeholder-not-high-entropy}
+
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.irctc.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.gateway.filter.ratelimit: DEBUG
