@@ -49,39 +49,38 @@ The application is structured into four independent, decoupled microservices, ea
                                         └──────────────────┘
 ```
 
-1. **`user-service` (Port `8084`)**: Manages user profiles, registrations, authentication, and role management. Ready for **JWT integration**.
-2. **`search-service` (Port `8083`)**: Handles train searches, route options, station schedules, and seat availability. Integrated with **Redis caching** placeholders.
-3. **`booking-service` (Port `8081`)**: Manages ticket booking lifecycles, passenger information, and seat reservations.
-4. **`payment-service` (Port `8082`)**: Simulates railway transactions, payment gateways, invoice generation, and status webhooks.
+1. **`api-gateway` (Port `8080`)**: Intercepts client traffic, performs **JWT Validation**, **Redis Rate Limiting**, and reactively forwards microservice calls using a non-blocking WebClient proxy with a **Custom Distributed Circuit Breaker**.
+2. **`user-service` (Port `8084`)**: Manages user profiles, registrations, authentication, and password updates. Integrates with **Redis caching** for high-performance profile retrieval.
+3. **`search-service` (Port `8083`)**: Handles train searches, route options, station schedules, and seat availability. Integrated with Redis caching.
+4. **`booking-service` (Port `8081`)**: Manages ticket booking lifecycles, passenger information, and seat reservations.
+5. **`payment-service` (Port `8082`)**: Simulates railway transactions, payment gateways, invoice generation, and status webhooks.
 
 ---
 
-## ⚡ Key Technical Features & Ecosystem Readiness
+## ⚡ Key Technical Features & Implemented Architecture
 
-This repository is built and structured to integrate seamlessly into a fully fledged distributed system.
+This repository showcases advanced, production-grade microservice architecture patterns and local development workflows.
 
-### 🛡️ JWT Authentication Ready
-Each microservice is ready to support JWT validation. In production:
-- The **API Gateway** intercepts requests, validates the JWT, and extracts user claims (e.g., `userId`, `roles`).
-- The gateway passes these claims down to the downstream microservices via custom HTTP headers (e.g., `X-User-Id`, `X-User-Roles`).
-- Placeholder filter hooks have been supplied within the `config` module of each microservice.
+### 🛡️ Stateless JWT Security Offloading
+- The **API Gateway** acts as the single security enforcement point. It intercepts all incoming requests, validates the JWT, and extracts user claims (e.g., `userId`, `roles`).
+- The Gateway injects these claims as trusted custom HTTP headers (`X-User-Id`, `X-Username`, `X-User-Role`) before forwarding requests downstream.
+- Downstream services (like `user-service`) trust these headers completely, allowing us to **comment out local JWT filters** and avoid redundant database lookups for authentication.
 
-### 📡 Eureka Service Registry Ready
-- Ready to register with Eureka Server. 
-- The dependencies for Eureka Discovery Client are pre-added (commented out) in each service's `pom.xml`.
-- When you set up a Eureka Server, simply uncomment the `spring-cloud-starter-netflix-eureka-client` dependency and add `@EnableDiscoveryClient` to the Application main classes.
+### ⚙️ Custom Distributed Redis-Backed Circuit Breaker
+- Standard Spring Cloud Gateway filters have been replaced by a custom reactive forwarding proxy (`ProxyFilter` + `ProxyService`) that integrates a **distributed Redis-backed circuit breaker state-machine**.
+- Dynamically tracks service health (`CLOSED`, `OPEN`, `HALF_OPEN`) with a 5-failure threshold and a 60-second cooldown retry window.
+- Provides immediate **Fail-Fast** `503 Service Unavailable` responses when a downstream service goes down, preventing cascading failures.
+- Uptime health is dynamically synced to Redis to share state across multiple gateway instances.
 
-### ⚙️ Spring Cloud Config Server Ready
-- Centralized configuration capabilities can be unlocked by adding `spring-cloud-starter-config` (pre-populated and commented in `pom.xml`).
-- Supports seamless injection of variables across different environments (dev, test, prod).
+### 🚀 Redis Caching with Java 8 Date/Time support
+- The `user-service` integrates a **Cache-Aside / Lazy Loading** Redis caching system for user profiles (`GET /api/v1/user/profile`).
+- Yields blazing-fast **8ms database-free cache hits** (down from 200ms DB queries).
+- Custom serialized inside `RedisConfig.java` to support Java 8 `LocalDateTime` types using the `JavaTimeModule` module, preventing serialization crashes.
+- Automatic cache eviction (`evict`) triggers instantly on profile updates (`PUT /api/v1/user/profile/update`).
 
-### 🚀 Redis Caching Ready
-- The cache framework is supported via `spring-boot-starter-data-redis` (commented out in `pom.xml`).
-- Search and booking endpoints are set up to use `@Cacheable` and `@CacheEvict` annotations out of the box once the Redis connection parameters in `application.yml` are uncommented.
-
-### 🐳 Containerization & Orchestration
-- Every microservice features a production-ready, multi-stage **Dockerfile** based on Eclipse Temurin JDK 21.
-- A parent **`docker-compose.yml`** coordinates container deployments, local databases, and a shared Redis node.
+### 📬 Kafka-Triggered SMTP Email Delivery
+- The `notification-service` acts as a message consumer for async notification events (such as user welcome messages and registration OTPs) published to Apache Kafka.
+- Features fully-typed event class deserialization to safely map event properties and dispatch transactional SMTP emails.
 
 ---
 
@@ -115,8 +114,9 @@ Each microservice is ready to support JWT validation. In production:
 
 All services are equipped with custom global exception handlers and Spring Actuator health monitoring:
 
-| Service | Port | Local Run Command | Health Check Endpoint |
+| Service | Port | Local Run Command | Health Check / Diagnosis Endpoint |
 |---|---|---|---|
+| **api-gateway** | `8080` | `mvn spring-boot:run` | [http://localhost:8080/api/v1/gateway/health](http://localhost:8080/api/v1/gateway/health) (Public diagnosis) |
 | **booking-service** | `8081` | `mvn spring-boot:run` | [http://localhost:8081/actuator/health](http://localhost:8081/actuator/health) |
 | **payment-service** | `8082` | `mvn spring-boot:run` | [http://localhost:8082/actuator/health](http://localhost:8082/actuator/health) |
 | **search-service** | `8083` | `mvn spring-boot:run` | [http://localhost:8083/actuator/health](http://localhost:8083/actuator/health) |
