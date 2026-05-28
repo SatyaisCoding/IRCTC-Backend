@@ -7,4 +7,5 @@ public interface UserService {
     UserResponse getUserProfile(Long id);
     UserResponse updateUserProfile(Long id, String fullName, String email);
     void changePassword(Long id, ChangePasswordRequest request);
+    void deleteProfile(Long id);
 }

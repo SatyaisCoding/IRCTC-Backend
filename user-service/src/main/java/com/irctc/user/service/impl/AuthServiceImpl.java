@@ -10,6 +10,7 @@ import com.irctc.user.repository.UserRepository;
 import com.irctc.user.security.JwtTokenProvider;
 import com.irctc.user.security.UserPrincipal;
 import com.irctc.user.kafka.KafkaProducerService;
+import com.irctc.user.service.UserCacheService;
 import com.irctc.user.kafka.event.OtpNotificationEvent;
 import com.irctc.user.kafka.event.WelcomeNotificationEvent;
 import com.irctc.user.service.AuthService;
@@ -42,6 +43,7 @@ public class AuthServiceImpl implements AuthService {
     private final OtpService otpService;
     private final KafkaProducerService kafkaProducerService;
     private final UserMapper userMapper;
+    private final UserCacheService userCacheService;
 
     @Value("${app.jwt.refreshTokenExpirationMs}")
     private long refreshTokenExpirationMs;
@@ -125,11 +127,17 @@ public class AuthServiceImpl implements AuthService {
                 .build();
         refreshTokenRepository.save(refreshToken);
 
+        UserResponse userResponse = userMapper.toResponse(user);
+
+        // Warm Redis cache on login — first GET /profile will be a cache HIT
+        userCacheService.put(userResponse);
+        log.info("[Auth] User [{}] logged in — profile cached in Redis (TTL 24h)", user.getUsername());
+
         return UserLoginResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshTokenString)
                 .tokenType("Bearer")
-                .user(userMapper.toResponse(user))
+                .user(userResponse)
                 .build();
     }
 
