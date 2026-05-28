@@ -31,9 +31,9 @@ public class KafkaHealthValidator {
         log.info("[KafkaHealthValidator] Checking Kafka broker connectivity...");
         try {
             pingBroker();
-            log.info("[KafkaHealthValidator] ✅ Kafka broker is reachable.");
+            log.info("[KafkaHealthValidator] Kafka broker is reachable.");
         } catch (KafkaBrokerUnavailableException ex) {
-            log.error("[KafkaHealthValidator] ❌ Kafka broker unreachable on startup: {}", ex.getMessage());
+            log.error("[KafkaHealthValidator] Kafka broker unreachable on startup: {}", ex.getMessage());
             log.error("[KafkaHealthValidator] Notification events will fail until Kafka is available.");
         }
     }
