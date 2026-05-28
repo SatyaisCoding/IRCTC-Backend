@@ -6,29 +6,52 @@ import com.irctc.user.entity.User;
 import com.irctc.user.exception.UserException;
 import com.irctc.user.mapper.UserMapper;
 import com.irctc.user.repository.UserRepository;
+import com.irctc.user.service.UserCacheService;
 import com.irctc.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    private final UserRepository userRepository;
-    private final UserMapper userMapper;
-    private final PasswordEncoder passwordEncoder;
+    private final UserRepository    userRepository;
+    private final UserMapper        userMapper;
+    private final PasswordEncoder   passwordEncoder;
+    private final UserCacheService  userCacheService;
 
+    // ── GET Profile ────────────────────────────────────────────────────────
+    // Cache-Aside: Redis first → DB on miss → store in Redis → return
     @Override
     @Transactional(readOnly = true)
     public UserResponse getUserProfile(Long id) {
+
+        // 1. Redis lookup (20ms)
+        UserResponse cached = userCacheService.get(id);
+        if (cached != null) {
+            return cached;
+        }
+
+        // 2. Cache miss → fetch from PostgreSQL (200ms)
+        log.info("[UserService] Cache miss for user:{} — fetching from DB", id);
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserException("User not found", "USER_NOT_FOUND", HttpStatus.NOT_FOUND));
-        return userMapper.toResponse(user);
+
+        UserResponse response = userMapper.toResponse(user);
+
+        // 3. Store in Redis for future lookups (TTL 24h)
+        userCacheService.put(response);
+
+        return response;
     }
 
+    // ── UPDATE Profile ─────────────────────────────────────────────────────
+    // Write to DB → evict stale cache → return fresh data
     @Override
     @Transactional
     public UserResponse updateUserProfile(Long id, String fullName, String email) {
@@ -47,9 +70,31 @@ public class UserServiceImpl implements UserService {
         }
 
         User updatedUser = userRepository.save(user);
-        return userMapper.toResponse(updatedUser);
+        UserResponse response = userMapper.toResponse(updatedUser);
+
+        // Evict stale cache — next GET will re-populate with fresh data
+        userCacheService.evict(id);
+        log.info("[UserService] Profile updated for user:{} — cache evicted", id);
+
+        return response;
     }
 
+    // ── DELETE Profile ─────────────────────────────────────────────────────
+    // Delete from DB → evict from Redis
+    @Override
+    @Transactional
+    public void deleteProfile(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserException("User not found", "USER_NOT_FOUND", HttpStatus.NOT_FOUND));
+
+        userRepository.delete(user);
+
+        // Evict from cache immediately
+        userCacheService.evict(id);
+        log.info("[UserService] Account deleted for user:{} — cache evicted", id);
+    }
+
+    // ── CHANGE Password ────────────────────────────────────────────────────
     @Override
     @Transactional
     public void changePassword(Long id, ChangePasswordRequest request) {
