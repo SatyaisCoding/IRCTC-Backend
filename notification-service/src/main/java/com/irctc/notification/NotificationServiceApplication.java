@@ -50,25 +50,4 @@ public class NotificationServiceApplication {
             }
         }
     }
-
-    @Bean
-    public CommonErrorHandler errorHandler(KafkaTemplate<Object, Object> template) {
-        // 1. Recover by publishing directly to the DLT topic suffixed with "-dlt" on the same partition
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template,
-                (r, e) -> new TopicPartition(r.topic() + "-dlt", r.partition()));
-
-        // 2. Exponential backoff: starting at 2000ms, doubling delay each retry (2000ms, 4000ms, 8000ms) up to 10000ms max
-        ExponentialBackOff backOff = new ExponentialBackOff(2000L, 2.0);
-        backOff.setMaxInterval(10000L);
-        backOff.setMaxElapsedTime(100000L); // Extend total elapsed time so it successfully completes all 3 retries
-
-        // 3. Set Max attempts to 4 (1 initial attempt + 3 local retries)
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
-        errorHandler.setLogLevel(org.springframework.kafka.KafkaException.Level.WARN); // Suppress noisy ERROR stack traces during retries
-        
-        // Exclude specific exceptions if desired
-        errorHandler.addNotRetryableExceptions(NullPointerException.class);
-        
-        return errorHandler;
-    }
 }
