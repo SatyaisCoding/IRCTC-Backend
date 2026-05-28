@@ -1,6 +1,5 @@
 package com.irctc.user.config;
 
-import com.irctc.user.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -13,7 +12,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -25,12 +23,6 @@ import java.util.Collections;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -52,19 +44,10 @@ public class SecurityConfig {
             // 2. Stateless session management
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             
-            // 3. Request Authorizations
+            // 3. Request Authorizations (delegated to API Gateway)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                        "/",
-                        "/health",
-                        "/actuator/**",
-                        "/api/v1/auth/**"
-                ).permitAll()
-                .anyRequest().authenticated()
-            )
-            
-            // 4. Custom JWT filters injection
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .anyRequest().permitAll()
+            );
 
         return http.build();
     }

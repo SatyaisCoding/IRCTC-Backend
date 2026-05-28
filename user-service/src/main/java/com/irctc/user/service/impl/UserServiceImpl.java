@@ -105,6 +105,10 @@ public class UserServiceImpl implements UserService {
             throw new UserException("Old password does not match", "INVALID_PASSWORD", HttpStatus.UNAUTHORIZED);
         }
 
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new UserException("New password cannot be the same as the old password", "SAME_PASSWORD", HttpStatus.BAD_REQUEST);
+        }
+
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
     }
