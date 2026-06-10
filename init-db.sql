@@ -3,3 +3,4 @@ CREATE DATABASE irctc_user;
 CREATE DATABASE irctc_booking;
 CREATE DATABASE irctc_payment;
 CREATE DATABASE irctc_search;
+CREATE DATABASE irctc_admin;
