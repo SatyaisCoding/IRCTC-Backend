@@ -118,6 +118,20 @@ spring:
                 redis-rate-limiter.burstCapacity: 20
                 key-resolver: "#{@userKeyResolver}"
 
+        # ════════════════════════════════════════════════════════════════════
+        # ADMIN SERVICE  (internal port: 8090)
+        # ════════════════════════════════════════════════════════════════════
+
+        - id: admin-service
+          uri: ${ADMIN_SERVICE_URL:http://localhost:8090}
+          predicates:
+            - Path=/admin/**
+
+        - id: admin-service-api
+          uri: ${ADMIN_SERVICE_URL:http://localhost:8090}
+          predicates:
+            - Path=/api/admin/**
+
 # ── Actuator ──────────────────────────────────────────────────────────────
 management:
   endpoints:
